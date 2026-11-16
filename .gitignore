@@ -1,0 +1,5 @@
+target/
+tools/gen/target/
+dist/out/
+web/node_modules/
+src/board.html

@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  IgnorableNamespaces="uap uap3 uap10 com rescap desktop">
+
+  <Identity Name="HaLuachWidget" Publisher="CN=HaLuach Dev" Version="0.1.0.0" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>הלוח</DisplayName>
+    <PublisherDisplayName>יאנג בוי</PublisherDisplayName>
+    <Logo>Images\logo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22621.0" MaxVersionTested="10.0.26200.0" />
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.6" MinVersion="6000.519.329.0"
+      Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="he-IL" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="haluach-widget.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="הלוח" Description="זמני היום, מזג אוויר, רדיו וכלים בלוח הווידג'טים"
+        BackgroundColor="transparent" Square150x150Logo="Images\logo.png" Square44x44Logo="Images\logo.png" />
+      <Extensions>
+        <!-- Off until the user turns on red alert: then the provider starts at sign-in and polls (src/redalert.rs). -->
+        <desktop:Extension Category="windows.startupTask" Executable="haluach-widget.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="HaLuachStartup" Enabled="false" DisplayName="הלוח - צבע אדום" />
+        </desktop:Extension>
+        <!-- A reminder's "קראתי" / "התפללתי" button (src/notify.rs): haluach-done:<id prefixes> cancels the rest of that
+             time's reminders today. The exe gets the URI as its argument, does it and exits. -->
+        <uap:Extension Category="windows.protocol" Executable="haluach-widget.exe" EntryPoint="Windows.FullTrustApplication" uap10:Parameters="&quot;%1&quot;">
+          <uap:Protocol Name="haluach-done" />
+        </uap:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="haluach-widget.exe" Arguments="-RegisterProcessAsComServer" DisplayName="HaLuach feed provider">
+              <com:Class Id="F85756F5-BFE8-4602-8E67-01532B35D253" DisplayName="HaLuach feed provider" />
+              <com:Class Id="5D6EE3CC-E6D3-462A-AD07-F05CF4816599" DisplayName="HaLuach widgets provider" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets.feeds" DisplayName="הלוח" Id="HaLuachFeed" PublicFolder="Public">
+            <uap3:Properties>
+              <FeedProvider SettingsUri="https://the-young-boy.github.io/HaLuach/" Icon="Images\logo.png" Description="זמני היום, מזג אוויר, רדיו וכלים">
+                <Activation>
+                  <CreateInstance ClassId="F85756F5-BFE8-4602-8E67-01532B35D253" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="haluach" DisplayName="הלוח" Description="זמני היום, מזג אוויר, רדיו וכלים"
+                    ContentUri="https://the-young-boy.github.io/HaLuach-dev/board/?board=1"
+                    WebRequestFilter="https://the-young-boy.github.io/HaLuach-dev/board/*"
+                    Icon="Images\logo.png" />
+                </Definitions>
+              </FeedProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets" DisplayName="הלוח" Id="HaLuachWidgets" PublicFolder="Public">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons><Icon Path="Images\logo.png" /></ProviderIcons>
+                <Activation>
+                  <CreateInstance ClassId="5D6EE3CC-E6D3-462A-AD07-F05CF4816599" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="zmanim" DisplayName="זמני היום" Description="התאריך העברי, הזמן הבא עם ספירה לאחור, ורשימת הזמנים שבחרתם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="זמני היום" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="shabbat" DisplayName="שבת וחג" Description="פרשה, הדלקת נרות וצאת השבת" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="שבת וחג" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="weather" DisplayName="מזג אוויר" Description="עכשיו, השעות הקרובות והימים הבאים" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="מזג אוויר" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="radio" DisplayName="רדיו" Description="התחנה, השיר וכפתורי ניגון" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="רדיו" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="rates" DisplayName="שערי מטבע" Description="דולר, יורו וביטקוין, עם השינוי היומי" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="שערי מטבע" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="transit" DisplayName="תחבורה ציבורית" Description="הקווים הקרובים בתחנה שבחרתם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="תחבורה ציבורית" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="shipments" DisplayName="משלוחים" Description="הסטטוס האחרון של המשלוחים במעקב" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="משלוחים" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="podcasts" DisplayName="פודקאסטים" Description="הפרקים החדשים בפודקאסטים שאתם עוקבים אחריהם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="פודקאסטים" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="youtube" DisplayName="ערוצי יוטיוב" Description="הסרטונים החדשים בערוצים שאתם עוקבים אחריהם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="ערוצי יוטיוב" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="learning" DisplayName="לימוד יומי" Description="הדף היומי והלימודים שבחרתם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="לימוד יומי" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="personal" DisplayName="תאריכים אישיים" Description="יארצייט ואירועים קרובים" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="תאריכים אישיים" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="calendar" DisplayName="לוח שנה ושעון עולמי" Description="התאריך, החגים הקרובים והשעה בערים" IsCustomizable="false">
+                    <Capabilities><Capability><Size Name="medium" /></Capability><Capability><Size Name="large" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="לוח שנה ושעון עולמי" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="forums" DisplayName="פורומים" Description="התראות שלא נקראו בפורומים שחיברתם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="פורומים" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="redalert" DisplayName="צבע אדום" Description="התרעות פיקוד העורף ביישובים שבחרתם" IsCustomizable="true">
+                    <Capabilities><Capability><Size Name="small" /></Capability><Capability><Size Name="medium" /></Capability></Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\logo.png" DisplayAltText="צבע אדום" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                </Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+    <DeviceCapability Name="location" />
+  </Capabilities>
+</Package>

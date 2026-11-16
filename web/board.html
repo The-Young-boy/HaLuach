@@ -1,0 +1,31 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>הלוח</title>
+<style>/*CSS*/</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <img class="app" src="%LOGO%" alt="" width="30" height="30">
+    <h1>הלוח</h1>
+    <div class="today"><b id="hdate" class="fold"></b><span id="gdate" class="fold"></span></div>
+    <div class="tools">
+      <button id="place" class="place" title="מיקום"><svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 1a5 5 0 0 0-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg><span></span></button>
+      <button id="add" class="icon" title="הוספת כרטיס" aria-label="הוספת כרטיס"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 3v10M3 8h10"/></svg></button>
+      <button id="gear" class="icon" title="הגדרות" aria-label="הגדרות"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M12.97 6.46L14.69 6.78L14.69 9.22L12.97 9.54L12.60 10.43L13.59 11.87L11.87 13.59L10.43 12.60L9.54 12.97L9.22 14.69L6.78 14.69L6.46 12.97L5.57 12.60L4.13 13.59L2.41 11.87L3.40 10.43L3.03 9.54L1.31 9.22L1.31 6.78L3.03 6.46L3.40 5.57L2.41 4.13L4.13 2.41L5.57 3.40L6.46 3.03L6.78 1.31L9.22 1.31L9.54 3.03L10.43 3.40L11.87 2.41L13.59 4.13L12.60 5.57Z"/><circle cx="8" cy="8" r="2.2"/></svg></button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+</header>
+<main>
+<section id="panel" class="panel" hidden></section>
+<section id="now" class="card now" hidden></section>
+<div id="grid" class="grid"></div>
+</main>
+<script>/*JS*/</script>
+</body>
+</html>

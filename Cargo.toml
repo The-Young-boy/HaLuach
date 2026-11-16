@@ -1,0 +1,20 @@
+[package]
+name = "haluach-widget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rusqlite = { version = "0.40", default-features = false, features = ["bundled"] }
+serde_json = "1.0.154"
+windows-collections = "0.100"
+windows-core = "0.100"
+windows-future = "0.100"
+windows-reference = "0.100"
+windows-time = "0.100"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
