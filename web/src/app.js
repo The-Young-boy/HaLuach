@@ -13,7 +13,7 @@ import { checkAll as checkShipments } from './cards/shipments.js';
 import { checkAll as checkPodcasts } from './cards/podcasts.js';
 import { checkAll as checkYoutube } from './cards/youtube.js';
 import weatherCard, { alerts as weatherAlerts, lastData as weatherData } from './cards/weather.js';
-import { notify, openExternal, sourceStates, hm } from './core.js';
+import { notify, openExternal, sourceStates, hm, proxied } from './core.js';
 import { row, toggle, choice, select } from './ui.js';
 
 register([zmanimCard, ...more]);
@@ -356,32 +356,66 @@ function aboutSection(api, close) {
   const copied = h('p', { class: 'hint' });
   call('');
   const logo = document.querySelector('.brand img.app')?.src || '';
+  const lay = settings().layout || [], shown = allCards().filter(c => !(lay.find(l => l.id === c.id)?.hidden ?? c.hiddenByDefault)).length;
+  // Downloads: GitHub's counter of the installer (the board sends nothing; the number is GitHub's own).
+  const DL_TIP = 'המספר מגיע מהמונה של GitHub, שסופר כמה פעמים הורידו את קובץ ההתקנה. הלוח לא עוקב אחרי התקנות ולא שולח שום מידע.';
+  const dlT = h('dt', { title: DL_TIP, hidden: true }, 'הורדות'), dlD = h('dd', { class: 'dl', title: DL_TIP, hidden: true });
+  downloads().then(n => { if (n == null) return; dlD.textContent = `הורד כבר ${n.toLocaleString('he-IL')} פעמים`; dlT.hidden = dlD.hidden = false; });
+  const techText = async () => {
+    const [u, r] = await Promise.all([fetch('update').then(x => x.json()).catch(() => ({})), fetch('report').then(x => x.json()).catch(() => ({}))]);
+    return { ver: `${u.current || '?'}${u.dev ? ' (פיתוח)' : ''}`, win: `Windows build ${r.build || '?'}`, log: r.log || '' };
+  };
   api.section('about', '', h('div', { class: 'about' },
     logo ? h('img', { src: logo, alt: '', width: 72, height: 72 }) : '',
     h('h2', {}, 'הלוח'),
-    h('p', { class: 'sub' }, 'זמנים, לוח שנה, לימוד ומידע, בלוח הווידג׳טים של Windows.'),
-    h('dl', {}, h('dt', {}, 'גרסה'), ver),
+    h('p', {}, 'זמני היום, שבת וחג, לימוד ומידע, בתוך לוח הווידג׳טים של Windows.'),
+    h('dl', {}, h('dt', {}, 'כרטיסים'), h('dd', {}, `${allCards().length} כרטיסים, מהם ${shown} מוצגים אצלך`), h('dt', {}, 'גרסה'), ver, dlT, dlD),
     h('div', { class: 'upd' }, state, check, upd),
     h('div', { class: 'about-links' },
       h('button', { class: 'chip', onclick: whatsNew }, 'מה חדש בגרסה'),
+      // A new GitHub issue, filled in; nothing is sent until the user sends it there (as HaFeed).
+      h('button', { class: 'chip', onclick: async () => {
+        const t = await techText();
+        const body = `**מה קרה?**\n\n\n**מה ציפית שיקרה?**\n\n\n---\nגרסה: ${t.ver}\n${t.win}\n\n<details><summary>יומן</summary>\n\n\`\`\`\n${t.log.slice(-6000)}\n\`\`\`\n</details>\n`;
+        openExternal('https://github.com/The-Young-boy/HaLuach/issues/new?title=' + encodeURIComponent('בעיה: ') + '&body=' + encodeURIComponent(body));
+        copied.textContent = 'נפתח דף בעיה ב-GitHub. שום דבר לא נשלח עד שלוחצים שם על שליחה.';
+      } }, 'דיווח על בעיה'),
       h('button', { class: 'chip', title: 'להדבקה בפורום או בהודעה', onclick: async () => {
-        const [u, r] = await Promise.all([fetch('update').then(x => x.json()).catch(() => ({})), fetch('report').then(x => x.json()).catch(() => ({}))]);
+        const t = await techText();
         const text = `פרטים טכניים - הלוח
-גרסה: ${u.current || '?'}${u.dev ? ' (פיתוח)' : ''}
-Windows build ${r.build || '?'}
+גרסה: ${t.ver}
+${t.win}
 ${navigator.userAgent}
 
 ${sourceLines().map(([t, v]) => `${t}: ${v}`).join('\n')}
 
-${r.log || ''}`;
+${t.log}`;
         try { await navigator.clipboard.writeText(text); copied.textContent = 'הפרטים הועתקו. אפשר להדביק בפורום או בהודעה.'; } catch { copied.textContent = 'ההעתקה לא הצליחה.'; }
       } }, 'העתקת פרטים טכניים'),
       h('button', { class: 'chip', title: 'מיקום, זמנים וכרטיסים מההתחלה', onclick: () => { close(); wizard(0); } }, 'אשף ההתחלה')),
     copied,
+    h('div', { class: 'form upd-auto' }, h('label', { class: 'check' }, auto, h('span', {}, 'עדכונים אוטומטיים', h('span', { class: 'hint' }, 'הלוח בודק ב-GitHub פעם בכמה שעות, ומתעדכן לבד')))),
     sourcesBox(),
-    // The sister app (SPEC: a line about each other in About).
-    h('p', { class: 'sub' }, 'מאותו יוצר: ', h('button', { class: 'link', onclick: () => openExternal('https://github.com/The-Young-boy/HaFeed') }, 'הפיד'), ', חדשות ועדכונים בלוח הווידג׳טים.'),
-    h('div', { class: 'form upd-auto' }, h('label', { class: 'check' }, auto, h('span', {}, 'עדכון אוטומטי', h('span', { class: 'hint' }, 'הלוח בודק מדי פעם אם יש גרסה חדשה, ומתעדכן לבד'))))));
+    h('p', { class: 'hint' }, 'המידע שייך למקורות עצמם. הלוח רק מציג אותו, ובכל כרטיס יש דרך להגיע למקור.'),
+    h('p', { class: 'hint' }, 'ההגדרות וההתחברויות שלך נשמרות רק במחשב הזה. ההתחברויות נשמרות מוצפנות.'),
+    // The sister app (SPEC: a line about each other in About), in HaFeed's words.
+    h('p', { class: 'hint' }, 'אחות של הלוח: ', h('b', {}, 'הפיד'), ' - ערוצי חדשות ועדכונים, בפיד אחד מסודר. אפשר להתקין את שניהם באותו מחשב. ',
+      h('a', { href: '#', onclick: e => { e.preventDefault(); openExternal('https://github.com/The-Young-boy/HaFeed/releases/latest'); } }, 'להורדה')),
+    h('div', { class: 'credit' },
+      h('div', {}, 'נבנה באהבה ע"י ', h('b', {}, 'יאנג בוי')),
+      h('div', { class: 'credit-btns' },
+        h('a', { class: 'cbtn', href: '#', title: 'הפרויקט ב-GitHub', 'aria-label': 'הפרויקט ב-GitHub', html: GH_ICON,
+          onclick: e => { e.preventDefault(); openExternal('https://github.com/The-Young-boy/HaLuach'); } })))));
+}
+const GH_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+/** The installer's downloads over all releases (GitHub's counter), cached for an hour; null when it does not answer. */
+async function downloads() {
+  try { const c = JSON.parse(localStorage.getItem('haluach.downloads') || 'null'); if (c && Date.now() - c.at < 36e5) return c.n; } catch {}
+  const rel = await proxied('https://api.github.com/repos/The-Young-boy/HaLuach/releases?per_page=100', { headers: ['User-Agent: HaLuach'] }).catch(() => null);
+  if (!Array.isArray(rel)) return null;
+  const n = rel.flatMap(r => r.assets || []).filter(a => a.name === 'HaLuach-Setup.cmd').reduce((s, a) => s + (a.download_count || 0), 0);
+  try { localStorage.setItem('haluach.downloads', JSON.stringify({ n, at: Date.now() })); } catch {}
+  return n;
 }
 // The sources: when each card's source last answered, and which did not (SPEC: "מצב כל מקור").
 function sourceLines() {

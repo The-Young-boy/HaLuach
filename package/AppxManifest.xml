@@ -9,7 +9,7 @@
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   IgnorableNamespaces="uap uap3 uap10 com rescap desktop">
 
-  <Identity Name="HaLuachWidget" Publisher="CN=HaLuach Dev" Version="0.1.0.0" ProcessorArchitecture="x64" />
+  <Identity Name="HaLuachWidget" Publisher="CN=HaLuach Dev" Version="0.1.1.0" ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>הלוח</DisplayName>
