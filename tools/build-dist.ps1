@@ -85,12 +85,14 @@ $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\si
 & $signtool.FullName sign /q /fd SHA256 /sha1 $cert.Thumbprint /s My "$out\HaLuach.msix"
 if ($LASTEXITCODE) { throw 'signtool failed' }
 
-# 5. One CMD: the template, then the package, the certificate and the logo as base64 inside a PowerShell comment.
+# 5. One CMD: the template, then the package, the certificate and the logo as hex inside a PowerShell comment.
 $v = $version -replace '\.0$', ''
 $cmd = [IO.File]::ReadAllText("$root\dist\Setup.template.cmd").Replace('{{VERSION}}', $v).Replace('{{CERT}}', $cert.Thumbprint) -replace "`r?`n", "`r`n"
-$cmd += "<#`r`nCERT:" + [Convert]::ToBase64String($cert.RawData) +
-        "`r`nMSIX:" + [Convert]::ToBase64String([IO.File]::ReadAllBytes("$out\HaLuach.msix")) +
-        "`r`nLOGO:" + [Convert]::ToBase64String([IO.File]::ReadAllBytes("$root\package\Images\logo.png")) + "`r`n#>`r`n"
+# Hex (a-f only), not base64: NetFree blocks text downloads where base64 spells bad words by chance.
+$hex = { param($b) [BitConverter]::ToString($b).Replace('-', '').ToLowerInvariant() }
+$cmd += "<#`r`nCERT:" + (& $hex $cert.RawData) +
+        "`r`nMSIX:" + (& $hex ([IO.File]::ReadAllBytes("$out\HaLuach.msix"))) +
+        "`r`nLOGO:" + (& $hex ([IO.File]::ReadAllBytes("$root\package\Images\logo.png"))) + "`r`n#>`r`n"
 [IO.File]::WriteAllText("$out\HaLuach-Setup.cmd", $cmd, [Text.UTF8Encoding]::new($false))
 Remove-Item $stage -Recurse -Force
 # HaLuach.msix and HaLuach-Setup.cmd are the release assets the updater and the installer look for (update.rs, Setup.template.cmd).

@@ -46,9 +46,10 @@ function Write-Log($m) {
 }
 
 function Get-Data($tag) {
-    $m = [regex]::Match([IO.File]::ReadAllText($Self), "(?m)^$tag`:([A-Za-z0-9+/=]+)\s*$")
+    # Hex, not base64: NetFree scans text downloads for words, and base64 spells them by chance (0.1.1 was blocked).
+    $m = [regex]::Match([IO.File]::ReadAllText($Self), "(?m)^$tag`:([0-9a-f]+)\s*$")
     if (-not $m.Success) { throw "חסר מידע ($tag) בקובץ ההתקנה" }
-    [Convert]::FromBase64String($m.Groups[1].Value)
+    [System.Runtime.Remoting.Metadata.W3cXsd2001.SoapHexBinary]::Parse($m.Groups[1].Value).Value
 }
 function Test-Trusted { Test-Path "Cert:\LocalMachine\TrustedPeople\$CertThumb" }
 
