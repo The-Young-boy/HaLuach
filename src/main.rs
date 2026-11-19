@@ -183,6 +183,47 @@ fn handle(uri: &str, posted: &str, post: bool) -> (Vec<u8>, String, i32) {
         log(&format!("page: {}", p(q, "m").chars().take(300).collect::<String>()));
         return text("ok".into());
     }
+    // /board/backup (POST the JSON): Documents\HaLuach-backup-<time>.json (HaFeed); answers the file name.
+    if route(uri, "backup").is_some() {
+        if !posted.starts_with("{\n \"haluach\"") && !posted.starts_with("{\"haluach\"") || posted.len() > 5_000_000 { return (b"bad backup".to_vec(), "text/plain".into(), 400) }
+        let docs = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join("Documents");
+        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|x| x.as_secs()).unwrap_or(0);
+        let name = format!("HaLuach-backup-{secs}.json");
+        return match std::fs::write(docs.join(&name), posted.as_bytes()) {
+            Ok(()) => text(name),
+            Err(e) => { log(&format!("backup: {e}")); (Vec::new(), "text/plain".into(), 500) }
+        };
+    }
+    // /board/docsave?name=HaLuach-<x>.ics|.json (POST the text): into Documents; answers the full path.
+    if let Some(q) = route(uri, "docsave") {
+        let name = p(q, "name");
+        let ok = name.starts_with("HaLuach-") && (name.ends_with(".ics") || name.ends_with(".json"))
+            && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.') && !name.contains("..");
+        if !ok || posted.len() > 5_000_000 { return (b"bad".to_vec(), "text/plain".into(), 400) }
+        let path = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join("Documents").join(&name);
+        return match std::fs::write(&path, posted.as_bytes()) {
+            Ok(()) => text(path.display().to_string()),
+            Err(e) => { log(&format!("docsave: {e}")); (Vec::new(), "text/plain".into(), 500) }
+        };
+    }
+    // /board/look: the shared look with HaFeed ("מראה משותף עם הפיד"). POST {theme, accent, at}: written to our
+    // look.json. GET: {installed, other} where other is HaFeed's look.json (it writes the same file in its folder).
+    // Each app's AppData writes may land in its package's LocalCache, so both places are read.
+    if route(uri, "look").is_some() {
+        if post {
+            if posted.len() > 2000 || serde_json::from_str::<serde_json::Value>(posted).is_err() { return (b"bad".to_vec(), "text/plain".into(), 400) }
+            let _ = std::fs::create_dir_all(data_dir());
+            let _ = std::fs::write(data_dir().join("look.json"), posted);
+            return text("ok".into());
+        }
+        let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+        let pkgs: Vec<std::path::PathBuf> = std::fs::read_dir(local.join("Packages")).into_iter().flatten().flatten()
+            .filter(|e| e.file_name().to_string_lossy().starts_with("HagizraWidget_")).map(|e| e.path()).collect();
+        let other = pkgs.iter().map(|p| p.join("LocalCache").join("Local").join("HagizraFeed").join("look.json")).chain([local.join("HagizraFeed").join("look.json")])
+            .filter_map(|p| std::fs::read_to_string(p).ok()).filter_map(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+            .max_by_key(|v| v["at"].as_i64().unwrap_or(0));
+        return jsn(serde_json::json!({ "installed": !pkgs.is_empty(), "other": other }).to_string());
+    }
     // /board/zmanim?lat=&lng=&elev=&tz=&date=YYYY-MM-DD: the engine's times for one day (see zmanim.rs).
     if let Some(q) = route(uri, "zmanim") {
         return jsn(zmanim::day_json(q));
@@ -258,7 +299,7 @@ fn handle(uri: &str, posted: &str, post: bool) -> (Vec<u8>, String, i32) {
         let dedupe = !id.is_empty() && !id.starts_with("test-");
         if dedupe && notify::seen(&id) { return (b"dup".to_vec(), "text/plain".into(), 200) }
         let mut errs = Vec::new();
-        if via != "board" { if let Err(e) = notify::toast(&p(q, "title"), &p(q, "body"), &p(q, "url"), "", "") { errs.push(format!("toast {e}")); } }
+        if via != "board" { if let Err(e) = notify::toast(&p(q, "title"), &p(q, "body"), &p(q, "url"), &p(q, "img"), &p(q, "icon")) { errs.push(format!("toast {e}")); } }
         if via == "board" || via == "both" { if let Err(e) = notify::announce(&p(q, "id"), &p(q, "title"), &p(q, "body")) { errs.push(format!("board {e}")); } }
         if !errs.is_empty() { log(&format!("notify: {}", errs.join("; "))); } else if dedupe { notify::mark(&id); }
         return (errs.join("; ").into_bytes(), "text/plain; charset=utf-8".into(), if errs.is_empty() { 200 } else { 500 });

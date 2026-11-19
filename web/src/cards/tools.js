@@ -34,6 +34,17 @@ export function parseDate(text) {
   return null;
 }
 const hebText = hd => hd.renderGematriya(true);
+/** The next 3 times this Hebrew day comes, from today (a birthday or a yahrzeit): Adar in a plain year = Adar, and
+ *  a day 30 that the month lacks = its 29th. ponytail: the simple rule; hebcal getBirthdayOrAnniversary for halachic detail. */
+function nextYears(heb) {
+  const today = new HDate(), out = [];
+  for (let y = today.getFullYear(); out.length < 3 && y < today.getFullYear() + 5; y++) {
+    const m = heb.getMonth() >= 12 ? (HDate.isLeapYear(y) ? heb.getMonth() : 12) : heb.getMonth();
+    const d = new HDate(Math.min(heb.getDate(), HDate.daysInMonth(m, y)), m, y);
+    if (d.abs() >= today.abs()) out.push(d.greg());
+  }
+  return out;
+}
 const gregText = d => `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 
 function dateTab(box) {
@@ -63,7 +74,8 @@ function dateTab(box) {
     if (src !== 'heb') fillHeb(heb);
     if (src !== 'greg') { gd.value = greg.getDate(); gm.value = greg.getMonth(); gy.value = greg.getFullYear(); }
     out.replaceChildren(h('div', { class: 'big tl-heb' }, hebText(heb)),
-      h('div', {}, `יום ${WEEK[greg.getDay()]}${after.checked ? ' (בלילה)' : ''}, `, h('b', { class: 'num' }, gregText(greg))));
+      h('div', {}, `יום ${WEEK[greg.getDay()]}${after.checked ? ' (בלילה)' : ''}, `, h('b', { class: 'num' }, gregText(greg))),
+      h('div', { class: 'sub' }, 'בשנים הבאות: ', ...nextYears(heb).flatMap((d, i) => [i ? ', ' : '', h('b', { class: 'num' }, gregText(d))])));
   };
   const fromHeb = () => {
     const y = +hy.value, months = hebMonths(y).map(x => x[0]);

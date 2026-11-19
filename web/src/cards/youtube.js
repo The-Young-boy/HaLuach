@@ -3,7 +3,7 @@
 // (i.ytimg.com, open). Never a Google sign-in or the YouTube API (both blocked in NetFree). Every video is checked
 // against NetFree as the podcasts' episodes are (HEAD watch?v=, 418 = blocked). src/youtube.rs is the background port.
 // A channel: { id (UC...), name, accounts: [labels] (none = []), notify }. A channel in two accounts is followed once.
-import { h, proxied, BROWSER_UA, openLayer, openExternal, cardSettings, saveCard, log, hm, saving, undoBar } from '../core.js';
+import { h, proxied, BROWSER_UA, openLayer, openExternal, cardSettings, saveCard, log, hm, saving, sv, undoBar } from '../core.js';
 import { row, choice, select, section, more, toggle } from '../ui.js';
 import { parseFeed, merge, epOpen, ago, ytGets } from './podcasts.js';
 
@@ -205,7 +205,7 @@ export async function checkAll() {
     else if (Date.now() - v.t >= NEW_MS) continue;
     // The same ids as src/youtube.rs (yt-<video id>, yt-<video id>-o): the page and the background never send one twice.
     const name = nameOf(c, data);
-    out.push({ id: `yt-${p.id}${p.reopen ? '-o' : ''}`, title: p.reopen ? `נפתח: ${v.title}` : name, body: p.reopen ? name : v.title, url: watch(p.id) });
+    out.push({ id: `yt-${p.id}${p.reopen ? '-o' : ''}`, title: p.reopen ? `נפתח: ${v.title}` : name, body: p.reopen ? name : v.title, url: watch(p.id), img: thumb(p.id), icon: c.avatar || "" });
   }
   data._pending = keep;
   saveData(data);
@@ -230,7 +230,7 @@ function vidRow({ c, v }, data, after, showName = true) {
     after?.();
   };
   return h('div', { class: 'item pod-it yt-it', role: 'button', tabindex: 0, title: v.title, onclick: open, onkeydown: e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(); } } },
-    saving() ? '' : h('img', { class: 'yt-th lazyfade', src: thumb(v.id), alt: '', width: 64, height: 36, loading: 'lazy', onload: e => e.target.classList.add('in') }),
+    sv('svPics') ? '' : h('img', { class: 'yt-th lazyfade', src: thumb(v.id), alt: '', width: 64, height: 36, loading: 'lazy', onload: e => e.target.classList.add('in') }),
     h('div', {},
       h('div', { class: 'lab' }, dot, showName ? nameOf(c, data) : '', v.open === false ? h('span', { class: 'faint' }, showName ? ' · חסום' : 'חסום') : ''),
       h('div', { class: 'val', dir: 'auto' }, v.title || 'סרטון')),
@@ -310,7 +310,7 @@ async function signIn(ctx, out, n) {
   }
   out.textContent = 'עבר הזמן להתחברות.';
 }
-const avatar = c => c.avatar && !saving() ? h('img', { class: 'yt-av lazyfade', src: c.avatar, alt: '', width: 24, height: 24, loading: 'lazy', referrerpolicy: 'no-referrer', onload: e => e.target.classList.add('in'), onerror: e => e.target.remove() }) : '';
+const avatar = c => c.avatar && !sv('svPics') ? h('img', { class: 'yt-av lazyfade', src: c.avatar, alt: '', width: 24, height: 24, loading: 'lazy', referrerpolicy: 'no-referrer', onload: e => e.target.classList.add('in'), onerror: e => e.target.remove() }) : '';
 
 function addLayer(ctx) {
   openLayer(body => {

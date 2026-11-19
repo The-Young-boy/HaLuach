@@ -69,6 +69,9 @@ let metered = false;
 const askMetered = () => fetch('metered').then(r => r.text()).then(t => { metered = t.trim() === '1'; }).catch(() => {});
 askMetered(); whileVisible(askMetered, 10 * 60_000);
 export function saving() { const v = S.saver || 'auto'; return v === 'on' || (v === 'auto' && metered); }
+export const isMetered = () => metered;
+/** One limit of data saving (HaFeed sv): svBg no checks while closed, svPics no pictures, svSlow cards refresh x4. */
+export function sv(k) { return saving() && (S[k] ?? true); }
 
 // Each source's last answer, by host, for About ("מצב המקורות"): { name: { ok: ms, fail: ms } }.
 const SOURCE_NAMES = { 'api.open-meteo.com': 'מזג אוויר', 'air-quality-api.open-meteo.com': 'איכות אוויר', 'ims.gov.il': 'השירות המטאורולוגי',
@@ -154,9 +157,17 @@ export function noPlace() {
   return h('div', { class: 'row' }, h('span', { class: 'sub' }, 'צריך מיקום כדי להציג.'),
     h('button', { class: 'btn primary', onclick: () => document.getElementById('place')?.click() }, 'בחירת מיקום'));
 }
+/** A file into Documents (the provider writes it). name: HaLuach-<letters>.ics|.json. The full path, or null. */
+export async function saveDoc(name, text) {
+  const r = await fetch('docsave?name=' + encodeURIComponent(name), { method: 'POST', body: text }).catch(() => null);
+  return r?.ok ? (await r.text()).trim() : null;
+}
 export function openExternal(url) { return fetch('open?u=' + encodeURIComponent(url)); }
-export function notify({ title, body = '', url = '', id = '', via = 'toast' }) {
-  return fetch(`notify?via=${via}&id=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}`);
+/** A notification from a card. via: the user's choice in the notifications tab (HaFeed's "איך להתריע"):
+ *  toast = a Windows notification, board = quietly on the widgets button, both, off = none. */
+export function notify({ title, body = '', url = '', id = '', img = '', icon = '', via = S.notify?.via || 'toast' }) {
+  if (via === 'off') return Promise.resolve(new Response('off'));
+  return fetch(`notify?via=${via}&id=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&img=${encodeURIComponent(img)}&icon=${encodeURIComponent(icon)}`);
 }
 
 // ---------- tiny DOM helpers ----------
@@ -279,6 +290,7 @@ export function openSheet(title, build, opts = {}) {
       body.dataset.tab = t;
       nav.querySelectorAll('button').forEach(b => { b.setAttribute('aria-selected', String(b.dataset.t === t)); b.querySelector('.ink')?.remove(); if (b.dataset.t === t) ink(b); });
       body.querySelectorAll(':scope > section[data-t]').forEach(s => { s.hidden = s.dataset.t !== t; });
+      nav.querySelectorAll('button').forEach(b => { if (opts.hiddenTabs?.includes(b.dataset.t)) b.hidden = b.dataset.t !== t; });
       if (noHit) noHit.hidden = true;
       sh.scrollTop = 0;
       S.setTab = t; save();
@@ -417,6 +429,7 @@ export function drawGrid() {
     grid.append(c.el);
     renderCard(c);
     dragToSort(c.el);
+    resizable(c.el, l);
   }
   if (!grid.children.length) grid.append(h('div', { class: 'empty sub' }, 'אין כרטיסים בלשונית הזאת. מוסיפים בכפתור +.'));
 }
@@ -517,6 +530,8 @@ function compactView(sum, id) {
     h('span', { class: 'c-line' }, sum.big ? h('span', { class: 'c-big' }, sum.big) : '', sum.sub ? h('span', { class: 'c-sub' }, sum.sub) : ''),
     rows.length ? h('span', { class: 'c-rows' }, ...rows.map(r => h('span', {}, r[0] ? r[0] + ' ' : '', h('b', {}, r[1] || '')))) : '');
 }
+const failed = c => h('div', { class: 'row' }, h('span', { class: 'sub' }, navigator.onLine ? 'לא הצלחנו לטעון את הכרטיס.' : 'אין חיבור לאינטרנט.'),
+  h('button', { class: 'chip', onclick: e => { e.stopPropagation(); renderCard(c); } }, 'נסה שוב'));
 export async function renderCard(c) {
   if (!c.el) return;
   // Any change of height (opened, folded, new data) grows to it instead of jumping (growFrom after the drawing).
@@ -542,13 +557,13 @@ async function drawCard(c) {
       // `empty`: nothing set up yet; the full card has the button that adds the first one.
       if (sum && !sum.empty && (sum.big || sum.sub || sum.line)) body.replaceChildren(compactView(sum, c.mod.id));
       else await c.mod.render(body, ctxFor(c));
-    } catch (e) { log(`card ${c.mod.id}: ${e.message}`); body.replaceChildren(h('div', { class: 'sub' }, 'שגיאה בכרטיס.')); }
+    } catch (e) { log(`card ${c.mod.id}: ${e.message}`); body.replaceChildren(failed(c)); }
   } else {
-    try { await c.mod.render(body, ctxFor(c)); } catch (e) { log(`card ${c.mod.id}: ${e.message}`); body.replaceChildren(h('div', { class: 'sub' }, 'שגיאה בכרטיס.')); }
+    try { await c.mod.render(body, ctxFor(c)); } catch (e) { log(`card ${c.mod.id}: ${e.message}`); body.replaceChildren(failed(c)); }
   }
   pushWidget(c.mod, ctxFor(c));
   // A hidden page sets no timer: on showing again every shown card draws once and its timer starts again.
-  if (c.mod.every && !document.hidden) c.timer = setTimeout(() => renderCard(c), (typeof c.mod.every === 'function' ? c.mod.every(ctxFor(c)) : c.mod.every) * (saving() ? 4 : 1));
+  if (c.mod.every && !document.hidden) c.timer = setTimeout(() => renderCard(c), (typeof c.mod.every === 'function' ? c.mod.every(ctxFor(c)) : c.mod.every) * (sv('svSlow') ? 4 : 1));
 }
 /** A card's settings in the layer, by id (the wizard opens red alert's to pick the towns). */
 export function openCardSettings(id) { const c = cards.get(id); if (c?.mod.settings) cardSettingsLayer(c); }
@@ -576,11 +591,13 @@ function hideWithUndo(id) {
 }
 /** The bottom undo bar (decided with HaFeed: a raised surface, an accent "ביטול", --radius, 18px from the bottom). */
 let undoEl = null;
+/** A short note at the bottom (HaFeed's toast): "עודכן", "הועתק". */
+export function note(text) { undoBar(text, null); }
 export function undoBar(text, undo) {
   undoEl?.remove();
   clearTimeout(undoBar.t);
   const bar = h('div', { class: 'undo', role: 'status' }, h('span', {}, text),
-    h('button', { class: 'undo-btn', onclick: () => { gone(); undo(); } }, 'ביטול'));
+    undo ? h('button', { class: 'undo-btn', onclick: () => { gone(); undo(); } }, 'ביטול') : '');
   const gone = () => { if (!bar.isConnected) return; if (calm.matches) return bar.remove(); bar.classList.add('out'); setTimeout(() => bar.remove(), 140); };
   document.body.append(bar);
   undoEl = bar;
@@ -627,6 +644,24 @@ export function liveDrag(e, el, items, done, tap) {
     done(to >= 0 && to !== from ? to : -1);
   };
   grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up); grip.addEventListener('pointercancel', up);
+}
+/** The height of an open card, by dragging its bottom corner (SPEC "שינוי גודל"); kept in the layout as px.
+ *  A double click goes back to the content's own height. ponytail: height only; the board is one column ~400px. */
+function resizable(el, l) {
+  if (l.px) el.style.setProperty('--ch', l.px + 'px');
+  const grip = h('div', { class: 'rsz', title: 'גרירה לשינוי הגובה. לחיצה כפולה: גובה רגיל', 'aria-hidden': 'true' });
+  const keep = px => { S.layout = S.layout.map(x => x.id === l.id ? { ...x, px } : x); l.px = px; save(); };
+  grip.addEventListener('dblclick', e => { e.stopPropagation(); el.style.removeProperty('--ch'); keep(undefined); });
+  grip.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    e.preventDefault(); e.stopPropagation();
+    const body = el.querySelector('.card-body'), y0 = e.clientY, h0 = body.getBoundingClientRect().height;
+    grip.setPointerCapture(e.pointerId);
+    const move = ev => el.style.setProperty('--ch', Math.max(80, Math.round(h0 + ev.clientY - y0)) + 'px');
+    const up = () => { grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); const v = parseInt(el.style.getPropertyValue('--ch')); if (v) keep(v); };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
+  });
+  el.append(grip);
 }
 function dragToSort(el) {
   const head = el.querySelector('.card-head');

@@ -2,7 +2,7 @@
 // Stored in localStorage 'haluach.personal'. ICS import/export. Listens to 'haluach:add-personal' (the calendar's
 // "הוסף אירוע"). upcomingPersonal(days) is for the owner's reminders.
 import { HDate, months, gematriyaStrToNum } from '@hebcal/core';
-import { h, zmanim, settings, cardSettings, openLayer, ymd, ahead } from '../core.js';
+import { h, zmanim, settings, cardSettings, openLayer, ymd, ahead, saveDoc } from '../core.js';
 import { g, hebDate, hdateAt, addDays, noon } from './calendar-heb.js';
 import { KEY, TYPES, load, store, newId, parseYmd, hebrewOf, occurrences, remindDay, nameLetters, parseICS, guessType, cleanName, toICS } from './personal-calc.js';
 import { linkButtons } from './learning-links.js';
@@ -137,7 +137,7 @@ function exportLayer() {
     const status = h('span', { class: 'sub' });
     body.append(h('h2', {}, 'ייצוא ללוח שנה'), h('p', { class: 'sub' }, 'המופע הבא של כל תאריך, כאירוע של יום שלם.'),
       h('div', { class: 'prs-btns' },
-        h('a', { class: 'btn primary', href: url, download: 'haluach-personal.ics' }, 'הורדת הקובץ'),
+        h('button', { class: 'btn primary', onclick: async () => { const p = await saveDoc('HaLuach-personal.ics', ics); status.textContent = p ? `נשמר: ${p}` : 'השמירה נכשלה.'; } }, 'שמירה במסמכים'),
         h('button', { class: 'btn', onclick: () => navigator.clipboard?.writeText(ics).then(() => { status.textContent = 'הועתק.'; }, () => { status.textContent = 'ההעתקה נכשלה.'; }) }, 'העתקה'), status));
   });
 }

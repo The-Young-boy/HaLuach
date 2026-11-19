@@ -129,10 +129,10 @@ export function cleanName(summary) {
   return summary.replace(/יאר?צייט|יאָרצייט|יום הולדת|יום נישואין|יום הנישואין|birthday|anniversary|yahr?zeit/gi, '').replace(/^[\s:\-–]+|[\s:\-–]+$/g, '').trim() || summary;
 }
 
-const icsEsc = s => String(s).replace(/([,;\\])/g, '\\$1');
-const icsDate = d => ymd(d).replace(/-/g, '');
+export const icsEsc = s => String(s).replace(/([,;\\])/g, '\\$1');
+export const icsDate = d => ymd(d).replace(/-/g, '');
 /** The next occurrence of each entry (and each coming bar/bat mitzva) as all-day events. */
-export function toICS(list, now = new Date()) {
+export function toICS(list, now = new Date(), bare = false) {
   const occ = occurrences(list, now, addDays(now, 400));
   const first = new Map(), ev = [];
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
@@ -144,5 +144,6 @@ export function toICS(list, now = new Date()) {
       `DTSTART;VALUE=DATE:${icsDate(o.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(o.date, 1))}`,
       `SUMMARY:${icsEsc(o.title)}`, `DESCRIPTION:${icsEsc(o.hdate + (o.parasha ? ', ' + o.parasha : ''))}`, 'END:VEVENT');
   }
+  if (bare) return ev;
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HaLuach//Personal dates//HE', 'CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n');
 }

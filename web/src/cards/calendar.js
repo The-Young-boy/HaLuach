@@ -2,10 +2,10 @@
 // both dates, holidays / fasts / rosh chodesh, the parasha on shabbat, Israeli national days (hebcal "modern"),
 // and a dot for personal dates. Clicking a day opens its zmanim and learning, with "הוסף אירוע".
 import { HDate, HebrewCalendar, flags } from '@hebcal/core';
-import { h, zmanText, zmanim, settings, cardSettings, openLayer, ymd, noPlace, ahead } from '../core.js';
+import { h, zmanText, zmanim, settings, cardSettings, openLayer, ymd, noPlace, ahead, saveDoc, hm } from '../core.js';
 import { chosen } from './zmanim.js';
 import { learningFor, learningRows, chosenIds } from './learning.js';
-import { load as loadPersonal, occurrences } from './personal-calc.js';
+import { load as loadPersonal, occurrences, toICS, icsEsc, icsDate } from './personal-calc.js';
 import { g, hebDate, hdateAt, monthName, evName, noon, addDays, DAYS, DAYS_SHORT } from './calendar-heb.js';
 import { CITIES, tzOffset } from './tools.js';
 import { upcoming as kodesh } from './shabbat.js';
@@ -134,6 +134,43 @@ export function openDay(date) {
   });
 }
 
+// ---------- "ייצוא ללוח שנה": an .ics file (holidays all day, shabbat and yom tov from candles to havdalah, personal dates) ----------
+async function buildICS({ hol, kodeshOn, mine, months }) {
+  const now = new Date(), end = addDays(now, months * 30), il = !!settings().loc?.il, ev = [];
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const utc = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  if (hol) for (const [k, list] of eventsBetween(now, end, il)) for (const e of list) {
+    if (e.kind === 'parasha') continue;
+    const d = new Date(k + 'T12:00');
+    ev.push('BEGIN:VEVENT', `UID:hol-${k}-${encodeURIComponent(e.name).slice(0, 40)}@haluach`, `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${icsDate(d)}`, `DTEND;VALUE=DATE:${icsDate(addDays(d, 1))}`, `SUMMARY:${icsEsc(e.name)}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+  }
+  if (kodeshOn && settings().loc) for (const w of await kodesh(months * 30, now).catch(() => [])) {
+    ev.push('BEGIN:VEVENT', `UID:kodesh-${utc(w.start)}@haluach`, `DTSTAMP:${stamp}`, `DTSTART:${utc(w.start)}`, `DTEND:${utc(w.end)}`,
+      `SUMMARY:${icsEsc(w.name)}`, `DESCRIPTION:${icsEsc(`הדלקת נרות ${hm(w.start)}, צאת ${hm(w.end)} (${settings().loc.name || ''})`)}`, 'END:VEVENT');
+  }
+  if (mine) ev.push(...toICS(loadPersonal(), now, true));
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HaLuach//Calendar//HE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:הלוח', ...ev, 'END:VCALENDAR'].join('\r\n');
+}
+function exportLayer() {
+  openLayer(body => {
+    const o = { hol: true, kodeshOn: !!settings().loc, mine: loadPersonal().length > 0, months: 12 };
+    const cb = (k, label, hint, off) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: o[k], disabled: !!off, onchange: e => { o[k] = e.target.checked; } }), h('span', {}, label, hint ? h('span', { class: 'hint' }, hint) : ''));
+    const status = h('div', { class: 'sub' });
+    body.append(h('h2', {}, 'ייצוא ללוח שנה'), h('p', { class: 'sub' }, 'קובץ ics שאפשר לייבא ל-Outlook, ליומן גוגל או לטלפון. הקובץ נשמר בתיקיית המסמכים.'),
+      h('div', { class: 'form' },
+        cb('hol', 'חגים ומועדים', 'כאירוע של יום שלם'),
+        cb('kodeshOn', 'שבתות וחגים', settings().loc ? 'מהדלקת הנרות עד צאת, לפי המיקום וההגדרות שלך' : 'צריך מיקום', !settings().loc),
+        cb('mine', 'תאריכים אישיים', 'המופע הבא של כל תאריך'),
+        row('לכמה זמן', choice([[3, '3 חודשים'], [6, 'חצי שנה'], [12, 'שנה']], 12, v => { o.months = +v; }))),
+      h('div', { class: 'prs-btns' },
+        h('button', { class: 'btn primary', onclick: async () => {
+          status.textContent = 'מכין...';
+          const p = await saveDoc('HaLuach-calendar.ics', await buildICS(o));
+          status.textContent = p ? `נשמר: ${p}. פותחים את הקובץ כדי לייבא אותו.` : 'השמירה נכשלה.';
+        } }, 'שמירה במסמכים')), status);
+  });
+}
 export default {
   id: 'calendar',
   title: 'לוח שנה',
@@ -196,7 +233,8 @@ export default {
   // Saved on every change (DESIGN.md "Inner menus").
   settings(box, ctx) {
     box.append(
-      row('החודש בכרטיס', choice([['heb', 'עברי'], ['greg', 'לועזי']], ctx.s.main, v => { ctx.set({ main: v }); view = null; ctx.rerender(); })));
+      row('החודש בכרטיס', choice([['heb', 'עברי'], ['greg', 'לועזי']], ctx.s.main, v => { ctx.set({ main: v }); view = null; ctx.rerender(); })),
+      row('ייצוא ללוח שנה', h('button', { class: 'btn', onclick: exportLayer }, 'ייצוא'), 'ל-Outlook, לגוגל או לטלפון'));
   },
 };
 

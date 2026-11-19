@@ -124,8 +124,9 @@ fn run(force: bool) {
         if sent.iter().any(|x| x == nid.as_str()) || crate::notify::seen(&nid) { continue }
         let name = name_of(ch, &data);
         let (title, body) = if re { (format!("נפתח: {}", s(&v["title"])), name) } else { (name, s(&v["title"])) };
-        match crate::notify::toast(&title, &body, &format!("https://www.youtube.com/watch?v={id}"), "", "") {
-            Ok(()) => { log(&format!("youtube: alert {nid}")); crate::notify::mark(&nid); sent.push(json!(nid)); }
+        match crate::notify::card(&nid, &title, &body, &format!("https://www.youtube.com/watch?v={id}"), &format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"), "") {
+            // held at night or with "כבוי": marked as seen all the same (as in the page and HaFeed)
+            Ok(_) => { log(&format!("youtube: alert {nid}")); crate::notify::mark(&nid); sent.push(json!(nid)); }
             Err(e) => { log(&format!("youtube: toast failed: {e}")); if young { keep.push(p); } }
         }
     }

@@ -22,6 +22,24 @@ pub fn toast(title: &str, body: &str, url: &str, img: &str, icon: &str) -> windo
     ToastNotificationManager::CreateToastNotifier()?.Show(&ToastNotification::CreateToastNotification(&doc)?)
 }
 
+/// A card's notification from the provider itself (YouTube in the background, forums), by the page's choices in
+/// the notifications tab: "איך להתריע" (via) and "שקט בלילה" (app.js RULES has the same defaults). Ok(false) = held.
+pub fn card(id: &str, title: &str, body: &str, url: &str, img: &str, icon: &str) -> windows_core::Result<bool> {
+    let n = crate::widgets::settings_value()["notify"].clone();
+    let via = n["via"].as_str().unwrap_or("toast");
+    if via == "off" || night(&n) { return Ok(false) }
+    if via != "board" { toast(title, body, url, img, icon)?; }
+    if via == "board" || via == "both" { announce(id, title, body)?; }
+    Ok(true)
+}
+fn night(n: &serde_json::Value) -> bool {
+    if !n["night"].as_bool().unwrap_or(true) { return false }
+    let at = |s: &str| { let mut p = s.split(':').map(|x| x.parse::<i64>().unwrap_or(0)); p.next().unwrap_or(0) * 60 + p.next().unwrap_or(0) };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
+    let (m, a, b) = (at(&crate::widgets::local(now).1), at(n["nightFrom"].as_str().unwrap_or("23:00")), at(n["nightTo"].as_str().unwrap_or("07:00")));
+    if a <= b { m >= a && m < b } else { m >= a || m < b }
+}
+
 /// The announcement on the widgets button (Windows shows it while the board is closed).
 pub fn announce(id: &str, title: &str, body: &str) -> windows_core::Result<()> {
     let icon = Uri::CreateUri(&HSTRING::from("ms-appx:///Images/logo.png"))?;

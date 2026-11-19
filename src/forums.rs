@@ -579,10 +579,10 @@ fn set_err(id: &str, e: &str, stop: bool) {
 fn toasts(f: &Forum, fresh: &[Value]) {
     if fresh.is_empty() || !notify_on(f.id) || crate::quiet_now(0) { return }
     for i in fresh.iter().take(3) {
-        if let Err(e) = crate::notify::toast(f.name, i["text"].as_str().unwrap_or(""), i["url"].as_str().unwrap_or(f.base), "", "") { log(&format!("forums toast: {e}")); }
+        if let Err(e) = crate::notify::card(&format!("forum-{}-{}", f.id, now_ms()), f.name, i["text"].as_str().unwrap_or(""), i["url"].as_str().unwrap_or(f.base), "", "") { log(&format!("forums toast: {e}")); }
     }
     if fresh.len() > 3 {
-        let _ = crate::notify::toast(f.name, &format!("ועוד {} התראות חדשות", fresh.len() - 3), &f.link(if f.xf { "/account/alerts" } else { "/notifications" }), "", "");
+        let _ = crate::notify::card(&format!("forum-{}-more", f.id), f.name, &format!("ועוד {} התראות חדשות", fresh.len() - 3), &f.link(if f.xf { "/account/alerts" } else { "/notifications" }), "", "");
     }
 }
 fn now_ms() -> i64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0) }
